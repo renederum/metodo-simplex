@@ -417,11 +417,13 @@ class TwoPhaseSimplex {
     });
 
     // Eliminar variables básicas de la fila objetivo
+    const rowOps = [];
     for (let i = 0; i < m; i++) {
       const bv = basicVars2[i];
       if (bv === -1 || bv >= phase2Cols - 1) continue;
       const coeff = mat2[objRow][bv];
       if (!isZero(coeff)) {
+        rowOps.push({ row: i, varName: phase2VarNames[bv], coeff });
         for (let j = 0; j < phase2Cols; j++) {
           mat2[objRow][j] -= coeff * mat2[i][j];
         }
@@ -430,13 +432,16 @@ class TwoPhaseSimplex {
 
     // Tableau después de reducir (eliminar básicas de la fila objetivo)
     const t0 = this._makeTableauData(mat2, basicVars2, objRow, phase2Cols, phase2Rows, phase2VarNames, 'Z');
+    const opsDesc = rowOps.map(op =>
+      `Fila Z − (${fmt(op.coeff)}) × Fila ${op.row + 1} (para eliminar ${op.varName})`
+    ).join('; ');
     this.iterations.push({
       phase: 2,
       iteration: 1,
       tableauData: t0,
       pivotCol: null,
       pivotRow: null,
-      explanation: 'Se eliminan las variables básicas de la función objetivo para obtener la forma canónica.'
+      explanation: 'Se aplica la fórmula a la fila Z usando filas pivote para eliminar las variables básicas: ' + opsDesc + '.'
     });
 
     // ---- Iterar Fase 2 ----
