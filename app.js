@@ -145,23 +145,10 @@ class TwoPhaseSimplex {
 
     // Fase 1: minimizar w = suma de artificiales
     // Inicial: w - sum(Ri) = 0  => w + (-1)*Ri = 0
-    // Coeficientes de w en el tableau: 0 para no-artificiales, -1 para artificiales
     const wRow = rows - 1;
-    for (const ar of artRows) {
-      mat[wRow][ar.col] = -1;
-    }
-    // La variable w (objetivo) es implícita - no está en el tableau
 
-    // Eliminar vars artificiales de la fila w (son básicas)
-    for (const ar of artRows) {
-      for (let j = 0; j < cols; j++) {
-        mat[wRow][j] -= (-1) * mat[ar.row][j]; // w_row = w_row - (-1) * row_i
-      }
-    }
-
-    // Rastrear vars básicas
+    // Rastrear vars básicas (antes de tocar la fila w)
     const basicVars = new Array(m).fill(-1);
-    // Asignar básicas: para ≤, la slack es básica; para = o ≥, la artificial es básica
     sOff = n;
     aOff = n + this.slackCount;
     for (let i = 0; i < m; i++) {
@@ -179,19 +166,60 @@ class TwoPhaseSimplex {
       }
     }
 
-    // ---- Crear tableau inicial ----
-    const t0 = this._makeTableauData(mat, basicVars, wRow, cols, rows, null, 'w');
-    this.iterations.push({
-      phase: 1,
-      iteration: 0,
-      tableauData: t0,
-      pivotCol: null,
-      pivotRow: null,
-      explanation: 'Tableau inicial de la Fase 1. Minimizando w = Σ variables artificiales.'
-    });
+    // Colocar -1 en columnas artificiales de la fila w
+    for (const ar of artRows) {
+      mat[wRow][ar.col] = -1;
+    }
 
-    // ---- Iterar ----
-    let iterCount = 0;
+    let iterCount;
+    let didPivot = false;
+
+    if (artRows.length > 0) {
+      // ---- Tableau inicial con w sin reducir ----
+      const tW0 = this._makeTableauData(mat, basicVars, wRow, cols, rows, null, 'w');
+      this.iterations.push({
+        phase: 1,
+        iteration: 0,
+        tableauData: tW0,
+        pivotCol: null,
+        pivotRow: null,
+        explanation: 'Fase 1 — Tableau inicial con w = Σ artificiales. La fila w tiene coeficiente -1 en cada variable artificial.'
+      });
+
+      // Eliminar vars artificiales de la fila w (son básicas)
+      for (const ar of artRows) {
+        for (let j = 0; j < cols; j++) {
+          mat[wRow][j] -= (-1) * mat[ar.row][j]; // w_row = w_row - (-1) * row_i ⇒ w_row = w_row + row_i
+        }
+      }
+
+      // ---- Tableau después de reducir artificiales de la fila w ----
+      const tW1 = this._makeTableauData(mat, basicVars, wRow, cols, rows, null, 'w');
+      const artOps = artRows.map(ar => `fila ${ar.row + 1} (= ${this.varNames[ar.col]})`).join(', ');
+      this.iterations.push({
+        phase: 1,
+        iteration: 1,
+        tableauData: tW1,
+        pivotCol: null,
+        pivotRow: null,
+        explanation: 'Se eliminan las artificiales de la fila w sumando las filas correspondientes: ' + artOps + '. Ahora w está lista para iniciar las iteraciones.'
+      });
+
+      iterCount = 1;
+    } else {
+      // ---- Tableau inicial sin artificiales ----
+      const t0 = this._makeTableauData(mat, basicVars, wRow, cols, rows, null, 'w');
+      this.iterations.push({
+        phase: 1,
+        iteration: 0,
+        tableauData: t0,
+        pivotCol: null,
+        pivotRow: null,
+        explanation: 'Tableau inicial de la Fase 1 (sin variables artificiales).'
+      });
+
+      iterCount = 0;
+    }
     const maxIter = 100;
 
     while (iterCount < maxIter) {
@@ -203,6 +231,7 @@ class TwoPhaseSimplex {
         // Óptimo alcanzado
         break;
       }
+      didPivot = true;
 
       // Encontrar fila pivote
       const pivotRow = this._findPivotRow(mat, pivotCol, cols, m);
@@ -267,7 +296,7 @@ class TwoPhaseSimplex {
     }
 
     // Tableau final óptimo de Fase 1 (solo si hubo iteraciones)
-    if (iterCount > 0) {
+    if (didPivot) {
       const tdFinal1 = this._makeTableauData(mat, basicVars, wRow, cols, rows, null, 'w');
       this.iterations.push({
         phase: 1,
