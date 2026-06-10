@@ -838,21 +838,6 @@ class SimplexUI {
     </div>`;
 
     html += `</div>`;
-
-    // Variables de holgura y excedente
-    const slackVars = Object.entries(sol).filter(([k]) => k.startsWith('s'));
-    if (slackVars.length > 0) {
-      html += `<h4 style="margin-top: 1rem; color: #374151;">Variables de holgura/excedente</h4>`;
-      html += `<div class="solution-grid">`;
-      for (const [name, val] of slackVars) {
-        html += `<div class="solution-item">
-          <div class="var-name">${name}</div>
-          <div class="var-value positive">${fmt(val)}</div>
-        </div>`;
-      }
-      html += `</div>`;
-    }
-
     html += `</div>`;
     return html;
   }
