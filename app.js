@@ -376,6 +376,17 @@ class TwoPhaseSimplex {
       if (nj !== -1) mat2[objRow][nj] = -p.objective[j];
     }
 
+    // Tableau con función objetivo original (antes de reducir)
+    const tOrig = this._makeTableauData(mat2, basicVars2, objRow, phase2Cols, phase2Rows, phase2VarNames, 'Z');
+    this.iterations.push({
+      phase: 2,
+      iteration: 0,
+      tableauData: tOrig,
+      pivotCol: null,
+      pivotRow: null,
+      explanation: 'Inicio de Fase 2. Se restaura la función objetivo original: Z ' + p.objective.map((c, i) => (c > 0 ? '- ' : '+ ') + Math.abs(c) + this.varNames[i]).join(' ') + ' = 0'
+    });
+
     // Eliminar variables básicas de la fila objetivo
     for (let i = 0; i < m; i++) {
       const bv = basicVars2[i];
@@ -388,19 +399,19 @@ class TwoPhaseSimplex {
       }
     }
 
-    // Tableau inicial Fase 2 con obj correcta (después de eliminar básicas)
+    // Tableau después de reducir (eliminar básicas de la fila objetivo)
     const t0 = this._makeTableauData(mat2, basicVars2, objRow, phase2Cols, phase2Rows, phase2VarNames, 'Z');
     this.iterations.push({
       phase: 2,
-      iteration: 0,
+      iteration: 1,
       tableauData: t0,
       pivotCol: null,
       pivotRow: null,
-      explanation: 'Inicio de Fase 2. Se eliminan variables artificiales y se restaura la función objetivo original.'
+      explanation: 'Se eliminan las variables básicas de la función objetivo para obtener la forma canónica.'
     });
 
     // ---- Iterar Fase 2 ----
-    let iterCount = 0;
+    let iterCount = 1;
     const maxIter = 100;
     const optType = p.type;
 
